@@ -17,11 +17,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from kernels import get_kernel
 cap = torch.cuda.get_device_capability()
-# varunneal's FA3 is Hopper only, use kernels-community on non-Hopper GPUs
-repo = "varunneal/flash-attention-3" if cap == (9, 0) else "kernels-community/flash-attn3"
-fa3 = get_kernel(repo).flash_attn_interface
+# B200 (sm_100) baseline uses pre-installed flash_attn 2.7.3 which supports Blackwell.
+# Same call signature as the FA3 path (causal, window_size). Agents may swap to FA3
+# (Hopper) or Transformer Engine attention later — keep the `fa3` name for minimal diff.
+from flash_attn import flash_attn_func
+class _FA2Shim:
+    flash_attn_func = staticmethod(flash_attn_func)
+fa3 = _FA2Shim()
 
 from prepare import MAX_SEQ_LEN, TIME_BUDGET, Tokenizer, make_dataloader, evaluate_bpb
 
