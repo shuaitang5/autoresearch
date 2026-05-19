@@ -11,13 +11,21 @@ wheels/
 worktrees/
 results/
 queue/
-
 # Agent prompt files (generated per-session by launchers)
 CLAUDE.md
 AGENTS.md
-
 # Experimental code/artifacts
 dev/
-
 # Results file
 results.tsv
+# Runtime artifacts (not checked in)
+.venv/
+run.log
+.swarm-logs/
+.cache/
+site/
+# Local IDE / agent state
+.claude/
+# Python
+*.pyc
+*.pyo
