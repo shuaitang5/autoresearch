@@ -2,6 +2,233 @@
 
 Run [karpathy/autoresearch](https://github.com/karpathy/autoresearch) as an **8-agent swarm** on a Leviathan B200 sleeper pod. **Everything happens on `c7` cloud desktop.** Your laptop is only used to ssh into c7.
 
+> **For a fresh Claude Code session:** read [OPERATIONS](#operations-fresh-session-pickup) below first. It tells you (a) how to check current state, (b) how to resume after a c7 reboot, and (c) where progress lives. Don't re-read setup unless you're starting from scratch.
+
+---
+
+## OPERATIONS — fresh session pickup
+
+If you're a Claude session that just got dropped into this repo with no prior context, here's the cheat sheet:
+
+### What's running (as of 2026-05-19, ongoing)
+
+- **8-agent autoresearch swarm**, one tmux session per GPU, on cloud desktop `c7`.
+- **c7** = `dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com` (alias `c7` on user's laptop).
+- **Pod** = `tangshua-sleeper-bom-worker-0` in Leviathan BOM cluster (kraken job: `tangshua-sleeper-bom`).
+- All experiment state on FSx at `/scratch/tangshua/`. **Nothing important lives on c7's local disk** except the launcher scripts in `~/autoresearch/scripts/` and per-agent runner logs in `~/.autoresearch-swarm-logs/`.
+
+### How to check status (run on user's laptop, talks to c7)
+
+```bash
+ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com '
+  bash ~/autoresearch/scripts/swarm.sh status
+'
+```
+
+You should see 8 lines, all `RUNNING`. If any are `DOWN`, see [Resume](#resume-after-c7-reboot-or-tmux-loss).
+
+For research progress (val_bpb numbers, what each agent is keeping/discarding):
+
+```bash
+ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com '
+  export PATH=$HOME/.toolbox/bin:$PATH
+  for i in 0 1 2 3 4 5 6 7; do
+    echo "=== gpu$i ==="
+    kubectl exec tangshua-sleeper-bom-worker-0 -- bash -c "
+      cd /scratch/tangshua/autoresearch-gpu$i
+      tail -10 results.tsv
+      echo ---
+      git log --oneline -5
+    "
+  done
+'
+```
+
+For real-time GPU utilization:
+
+```bash
+ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com '
+  export PATH=$HOME/.toolbox/bin:$PATH
+  kubectl exec tangshua-sleeper-bom-worker-0 -- nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv,noheader
+'
+```
+
+To watch one agent live:
+
+```bash
+ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com -t '
+  bash ~/autoresearch/scripts/swarm.sh attach 0
+'
+# Ctrl-B then D to detach without killing the agent.
+```
+
+### Where progress is saved
+
+| Thing | Lives at | Survives… |
+|---|---|---|
+| The `train.py` an agent is iterating on | `/scratch/tangshua/autoresearch-gpu<i>/train.py` (FSx) | c7 reboot, pod reboot |
+| Each agent's commit history (every kept experiment is a commit) | `/scratch/tangshua/autoresearch-gpu<i>/.git` (worktree of `/scratch/tangshua/autoresearch/.git` on FSx) | c7 reboot, pod reboot |
+| Each agent's `results.tsv` (every experiment, kept + discarded + crashed) | `/scratch/tangshua/autoresearch-gpu<i>/results.tsv` (FSx, not git-tracked) | c7 reboot, pod reboot |
+| Tmux sessions running `claude -p` | `/tmp/tmux-<uid>/...` on c7 (in-memory) | survives ssh disconnect, **NOT** c7 reboot |
+| Per-agent runner stdout (claude's text output) | `~/.autoresearch-swarm-logs/gpu<i>.log` on c7 | c7 disk persistent (not on FSx) |
+| Cron auth-probe log | `~/.cache/autoresearch-auth/probe.log` on c7 | c7 disk persistent |
+
+The single source of truth for "what has the agent learned" is the **git history of each per-gpu worktree on FSx**. Even if every other piece of state is wiped, the agents can resume from there.
+
+### Resume after c7 reboot (or tmux loss)
+
+c7 reboots kill the tmux server, which kills all 8 agents. The work itself is safe (it's on FSx). Restart procedure:
+
+```bash
+# from user's laptop
+ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com
+
+# on c7
+export PATH=~/.toolbox/bin:~/.local/bin:$PATH
+
+# 1. refresh kraken kubectl auth (always needed after a long break)
+mwinit                                                       # if midway cookie >12h old
+kraken jobs update-kubeconfig -p obsidian -j tangshua-sleeper-bom
+
+# 2. verify pod is reachable
+kubectl get pod tangshua-sleeper-bom-worker-0                # STATUS=Running
+
+# 3. relaunch the swarm (worktrees + branches already exist on FSx)
+cd ~/autoresearch
+SKIP_WORKTREES=1 bash scripts/swarm.sh up                    # IMPORTANT: SKIP_WORKTREES=1
+```
+
+`SKIP_WORKTREES=1` is critical. Without it, `swarm.sh` would try to `git worktree add` on already-existing worktrees and error out. With it, it just relaunches the 8 tmux sessions on top of the existing FSx state.
+
+When the agent's `claude -p` starts up via the runner, it gets a "resume" prompt (not the kickoff one) on the second iteration onward. It reads `results.tsv` and `git log` to figure out where it left off, then continues the experiment loop. **The agents do not lose progress.**
+
+### If the auth cron alert fires
+
+Slack message will look like 🚨 with `kubectl exec failed: ... Unauthorized` and a fix block. Just SSH to c7 and run those exact lines:
+
+```bash
+ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com
+export PATH=~/.toolbox/bin:$PATH
+mwinit                                                       # if midway cookie expired
+kraken jobs update-kubeconfig -p obsidian -j tangshua-sleeper-bom
+```
+
+The agents themselves do **not** need a restart — when their next `kubectl exec` retries, it'll succeed. Their `claude -p` may have crashed mid-loop (the runner script will respawn it within 30s).
+
+### Stopping (be sure)
+
+```bash
+ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com '
+  bash ~/autoresearch/scripts/swarm.sh stop                  # kill tmux only; FSx state stays
+  # or
+  bash ~/autoresearch/scripts/swarm.sh nuke                  # ALSO delete worktrees + branches (destructive)
+'
+```
+
+### Files a fresh session should know about
+
+- [`.agents/SETUP.md`](.agents/SETUP.md) — this file, the canonical runbook.
+- [`scripts/swarm.sh`](scripts/swarm.sh) — start/stop/attach/status/nuke for the 8-agent swarm.
+- [`scripts/c7_bootstrap.sh`](scripts/c7_bootstrap.sh) — full pod-side setup, idempotent. Run from c7 if anything got wiped.
+- [`scripts/c7_sync_github.sh`](scripts/c7_sync_github.sh) — pod master → c7 → GitHub fork. Cron-managed (every 15min).
+- [`scripts/c7_auth_check.sh`](scripts/c7_auth_check.sh) — Slack alerter for kubectl auth expiry. Cron-managed (every 30min).
+- [`program.md`](program.md) — the autoresearch operating instructions the agents follow.
+- [`train.py`](train.py) — the file the agents iterate on. Master starts at commit `08bb702` (FA2 baseline). c7-side scripts added on `ae869bc`.
+
+### Don't do these without asking
+
+- Do **not** run `swarm.sh nuke` — it deletes the agents' git history.
+- Do **not** modify [`prepare.py`](prepare.py) — it's the read-only data/eval harness.
+- Do **not** rerun `c7_bootstrap.sh` with `FORCE=1` — it'll re-stage the data and could nuke uncommitted agent state. The bootstrap is idempotent without FORCE.
+- Do **not** push agents' branches (`autoresearch/<tag>-gpu*`) to GitHub — they're scratch experimental state with hundreds of force-pushes/day. The sync only ever pushes `master`.
+- Do **not** edit [`train.py`](train.py) on master from c7 — agents would diverge. If you really want to seed a new baseline, stop the swarm with `swarm.sh stop`, edit, sync, then `swarm.sh up` to refork worktrees.
+
+---
+
+## Sync flow: pod ↔ c7 ↔ GitHub fork
+
+**Single direction for `master`:** pod → c7 → `github.com/shuaitang5/autoresearch`.
+**Agent branches** (`autoresearch/<tag>-gpu0..7`) **never leave FSx.**
+
+```
+                  every 15min cron
+   pod master ──[git bundle]──→ c7 master ──[git push]──→ origin master (fork)
+   (FSx)                        (~/autoresearch)            (GitHub)
+                                  ▲
+                                  │ if you edit scripts/ etc., commit + push from c7
+                                  │ then run scripts/c7_sync_github.sh manually
+                                  │ to also propagate the c7 commit back to the pod
+```
+
+### Where to make edits
+
+- **Scripts/docs** (`scripts/`, `.agents/SETUP.md`): edit on c7 with vim/nano, commit, push to fork. Then run the script below to propagate to pod.
+- **`train.py` baseline**: don't edit on master. Agents iterate it on per-gpu branches.
+- **The agents themselves** edit `train.py` on their own branches — those changes never reach master.
+
+### Commands
+
+```bash
+# Show 3-way state (pod / c7 / origin SHAs)
+ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com '
+  bash ~/autoresearch/scripts/c7_sync_github.sh --status
+'
+
+# Manual one-shot sync (pod -> c7 -> fork)
+ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com '
+  bash ~/autoresearch/scripts/c7_sync_github.sh
+'
+
+# Cron management
+ssh c7 'bash ~/autoresearch/scripts/c7_sync_github.sh --install-cron'
+ssh c7 'bash ~/autoresearch/scripts/c7_sync_github.sh --uninstall-cron'
+```
+
+### When you need to push a c7 commit back to the pod
+
+The default sync flow is one-way (pod → c7 → fork). If you make a commit on c7 (e.g. updating a script), the cron will push it to the fork. To also propagate it to the pod's master:
+
+```bash
+# From c7
+cd ~/autoresearch
+git push origin master                                  # to fork (safe, fast-forward)
+
+# Bundle + ship to pod
+git bundle create /tmp/c7-delta.bundle <pod-master>..master
+kubectl cp /tmp/c7-delta.bundle tangshua-sleeper-bom-worker-0:/tmp/c7-delta.bundle
+kubectl exec tangshua-sleeper-bom-worker-0 -- bash -c '
+  cd /scratch/tangshua/autoresearch
+  # if pod has untracked dupes of files we are adding, move them aside first:
+  git fetch /tmp/c7-delta.bundle master:refs/remotes/c7/master
+  git merge --ff-only refs/remotes/c7/master
+  rm /tmp/c7-delta.bundle
+'
+rm /tmp/c7-delta.bundle
+```
+
+If `git merge --ff-only` complains about untracked files, move them out of the way first (the bundle has them as tracked, so this is harmless): `mkdir -p /tmp/pod-untracked && mv <conflict-paths> /tmp/pod-untracked/`.
+
+### What the sync cron does
+
+- Every 15 min, checks if pod's master SHA differs from c7's master SHA.
+- If they differ AND c7 is an ancestor of pod (i.e. pod only added commits) → fast-forward c7, push to origin.
+- If they have **diverged** (e.g. someone committed on c7 separately) → refuses to auto-merge, posts a Slack warning, leaves things alone for manual resolution.
+- The full log is at `~/.cache/autoresearch-sync/sync.log` on c7.
+
+### Verifying it's working
+
+The first cron-driven sync runs at the next `:00`, `:15`, `:30`, or `:45`. To check:
+```bash
+ssh c7 'tail -20 ~/.cache/autoresearch-sync/sync.log'
+ssh c7 'gh repo view shuaitang5/autoresearch --json url,defaultBranchRef'
+```
+
+Or just open https://github.com/shuaitang5/autoresearch in a browser — recent commits should show `c7-side swarm launcher...` (`ae869bc`) at the tip.
+
+---
+
+## (full setup runbook below — only relevant for first-time setup)
+
 If you've already set this up once and just want to launch / resume, jump to [Launch](#launch).
 
 ---
@@ -201,7 +428,7 @@ ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com
 export PATH=~/.toolbox/bin:$PATH
 
 mwinit
-kraken jobs update-kubeconfig -p obsidian -j tangshua-sleeper-bom-worker-0
+kraken jobs update-kubeconfig -p obsidian -j tangshua-sleeper-bom
 
 tmux ls | grep ar-gpu                              # are agents still running?
 
@@ -232,7 +459,7 @@ SKIP_WORKTREES=1 bash ~/autoresearch/scripts/swarm.sh up
 kubectl creds expired. On c7:
 ```bash
 mwinit
-kraken jobs update-kubeconfig -p obsidian -j tangshua-sleeper-bom-worker-0
+kraken jobs update-kubeconfig -p obsidian -j tangshua-sleeper-bom
 ```
 The Slack alert (if configured) fires automatically when this happens.
 
