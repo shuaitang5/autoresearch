@@ -460,7 +460,7 @@ DEVICE_BATCH_SIZE = 128  # per-device batch size (reduce if OOM)
 t_start = time.time()
 torch.manual_seed(42)
 torch.cuda.manual_seed(42)
-torch.set_float32_matmul_precision("high")
+torch.set_float32_matmul_precision("medium")
 device = torch.device("cuda")
 autocast_ctx = torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16)
 H100_BF16_PEAK_FLOPS = 989.5e12
