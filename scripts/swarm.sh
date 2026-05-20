@@ -220,20 +220,57 @@ RUNNER_EOF
 }
 
 cmd_status() {
-  printf "%-12s %-9s %-6s %-9s %s\n" SESSION STATE GPU BRANCH LOG_TAIL
+  # Per-gpu: tmux state (instant), then research progress (one kubectl exec for all 8).
+
+  # 1. tmux state (local, fast)
+  local states=()
   for i in $(seq 0 $((GPUS - 1))); do
-    local sess logf state tail br
-    sess="$(session_name "$i")"
-    logf="$(log_file "$i")"
-    br="$(branch_name "$i")"
-    if "$TMUX_BIN" has-session -t "$sess" 2>/dev/null; then state=RUNNING; else state=DOWN; fi
-    if [[ -f "$logf" ]]; then
-      tail="$(tail -n 1 "$logf" 2>/dev/null | tr -d '\r' | cut -c1-90)"
+    if "$TMUX_BIN" has-session -t "$(session_name "$i")" 2>/dev/null; then
+      states[$i]=RUN
     else
-      tail="(no log)"
+      states[$i]=DOWN
     fi
-    printf "%-12s %-9s %-6s %-9s %s\n" "$sess" "$state" "gpu$i" "$br" "$tail"
   done
+
+  # 2. research progress per gpu — single kubectl exec, parsed locally
+  local raw
+  raw=$(kubectl exec "$POD" -- bash -c "
+    for i in \$(seq 0 $((GPUS - 1))); do
+      tsv=$POD_REPO-gpu\$i/results.tsv
+      if [[ -f \$tsv ]]; then
+        # Format: commit \t val_bpb \t memory_gb \t status \t description
+        # Some agents wrote literal '\\t' instead of tab — handle both via sed normalize.
+        # Print: gpu_idx | total | n_keep | n_discard | n_crash | best_val_bpb | last_val_bpb | last_status | last_desc
+        sed 's/\\\\t/\t/g' \$tsv | awk -F'\t' -v gpu=\$i '
+          NR==1 { next }                                  # skip header
+          NF<4 { next }                                   # skip blank/malformed
+          { total++ }
+          \$4==\"keep\"    { keep++ }
+          \$4==\"discard\" { disc++ }
+          \$4==\"crash\"   { crash++ }
+          \$4!=\"crash\" && (\$2+0)>0 && (best==\"\" || (\$2+0)<best) { best=\$2 }
+          { last_bpb=\$2; last_status=\$4; last_desc=\$5 }
+          END {
+            if (total==0) { printf \"%d|0|0|0|0|-|-|-|-\n\", gpu }
+            else { printf \"%d|%d|%d|%d|%d|%s|%s|%s|%s\n\", gpu, total, keep+0, disc+0, crash+0, best, last_bpb, last_status, last_desc }
+          }
+        '
+      else
+        echo \"\$i|0|0|0|0|-|-|-|(no results.tsv)\"
+      fi
+    done
+  " 2>/dev/null)
+
+  # 3. render — column widths sized for typical values
+  #   GPU(4)  STATE(5)  EXP/K/D/C(13)  BEST_BPB(9)  LAST_BPB(9)  LAST_ST(8)  DESC(rest)
+  local fmt="%-4s  %-5s  %-13s  %-9s  %-9s  %-8s  %s\n"
+  printf "$fmt" GPU STATE TOT/K/D/C BEST_BPB LAST_BPB LAST_ST LAST_DESCRIPTION
+  while IFS='|' read -r idx total keep disc crash best last_bpb last_st last_desc; do
+    [[ -z "$idx" ]] && continue
+    local kdc="${total}/${keep}/${disc}/${crash}"
+    local desc_trunc="${last_desc:0:60}"
+    printf "$fmt" "gpu$idx" "${states[$idx]}" "$kdc" "$best" "$last_bpb" "$last_st" "$desc_trunc"
+  done <<< "$raw"
 }
 
 cmd_attach() { "$TMUX_BIN" attach -t "$(session_name "${1:?usage: attach <i>}")"; }
