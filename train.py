@@ -207,6 +207,7 @@ class GPT(nn.Module):
             window_sizes.append(char_to_window[char])
         window_sizes[-1] = (long_window, 0)
         window_sizes[config.n_layer // 2] = (long_window // 2, 0)
+        window_sizes[config.n_layer // 4] = (long_window // 4, 0)
         return window_sizes
 
     def estimate_flops(self):
