@@ -579,7 +579,7 @@ while True:
     t1 = time.time()
     dt = t1 - t0
 
-    if step > 500:
+    if step > 1000:
         total_training_time += dt
 
     # Logging
@@ -604,7 +604,7 @@ while True:
     step += 1
 
     # Time's up — but only stop after warmup steps so we don't count compilation
-    if step > 500 and total_training_time >= TIME_BUDGET:
+    if step > 1000 and total_training_time >= TIME_BUDGET:
         break
 
 print()  # newline after \r training log
