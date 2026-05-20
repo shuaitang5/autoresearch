@@ -438,7 +438,7 @@ HEAD_DIM = 128          # target head dimension for attention
 WINDOW_PATTERN = "SSSL" # sliding window pattern: L=full, S=half context
 
 # Optimization
-TOTAL_BATCH_SIZE = 112 * 2048 # ~524K tokens per optimizer step
+TOTAL_BATCH_SIZE = 96 * 2048 # ~524K tokens per optimizer step
 EMBEDDING_LR = 0.4      # learning rate for token embeddings (Adam)
 UNEMBEDDING_LR = 0.01  # learning rate for lm_head (Adam)
 MATRIX_LR = 0.05        # learning rate for matrix parameters (Muon)
@@ -451,7 +451,7 @@ FINAL_LR_FRAC = 0.01     # final LR as fraction of initial
 
 # Model size
 DEPTH = 9               # number of transformer layers
-DEVICE_BATCH_SIZE = 112  # per-device batch size (reduce if OOM)
+DEVICE_BATCH_SIZE = 96  # per-device batch size (reduce if OOM)
 
 # ---------------------------------------------------------------------------
 # Setup: tokenizer, model, optimizer, dataloader
