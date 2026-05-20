@@ -197,16 +197,14 @@ class GPT(nn.Module):
         return cos, sin
 
     def _compute_window_sizes(self, config):
-        pattern = config.window_pattern.upper()
-        assert all(c in "SL" for c in pattern)
         long_window = config.sequence_len
-        short_window = long_window // 8
-        char_to_window = {"L": (long_window, 0), "S": (short_window, 0)}
         window_sizes = []
         for layer_idx in range(config.n_layer):
-            char = pattern[layer_idx % len(pattern)]
-            window_sizes.append(char_to_window[char])
-        window_sizes[-1] = (long_window, 0)
+            if layer_idx < 3:
+                window_sizes.append((128, 0))  # very local for early layers
+            else:
+                window_sizes.append((256, 0))  # wider for later layers
+        window_sizes[-1] = (long_window, 0)  # full context for last layer
         return window_sizes
 
     def estimate_flops(self):
