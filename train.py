@@ -439,7 +439,7 @@ HEAD_DIM = 128          # target head dimension for attention
 WINDOW_PATTERN = "SMSML" # sliding window pattern: L=full, S=half context
 
 # Optimization
-TOTAL_BATCH_SIZE = 2**18 # ~524K tokens per optimizer step
+TOTAL_BATCH_SIZE = 2**17 # ~524K tokens per optimizer step
 EMBEDDING_LR = 0.3      # learning rate for token embeddings (Adam)
 UNEMBEDDING_LR = 0.004  # learning rate for lm_head (Adam)
 MATRIX_LR = 0.04        # learning rate for matrix parameters (Muon)
@@ -452,7 +452,7 @@ FINAL_LR_FRAC = 0.1     # final LR as fraction of initial
 
 # Model size
 DEPTH = 9               # number of transformer layers
-DEVICE_BATCH_SIZE = 128  # per-device batch size (reduce if OOM)
+DEVICE_BATCH_SIZE = 64  # per-device batch size (reduce if OOM)
 
 # ---------------------------------------------------------------------------
 # Setup: tokenizer, model, optimizer, dataloader
