@@ -206,7 +206,7 @@ class GPT(nn.Module):
             char = pattern[layer_idx % len(pattern)]
             window_sizes.append(char_to_window[char])
         window_sizes[-1] = (long_window, 0)
-        window_sizes[config.n_layer // 2] = (long_window // 2, 0)
+        window_sizes[config.n_layer // 2] = (768, 0)
         window_sizes[config.n_layer // 4] = (320, 0)
         return window_sizes
 
@@ -263,7 +263,7 @@ class GPT(nn.Module):
             group_params = [p for p in matrix_params if p.shape == shape]
             param_groups.append(dict(
                 kind='muon', params=group_params, lr=matrix_lr,
-                momentum=0.95, ns_steps=5, beta2=0.90, weight_decay=weight_decay,
+                momentum=0.95, ns_steps=5, beta2=0.85, weight_decay=weight_decay,
             ))
         optimizer = MuonAdamW(param_groups)
         for group in optimizer.param_groups:
