@@ -442,7 +442,7 @@ WINDOW_PATTERN = "SMSML" # sliding window pattern: L=full, S=half context
 TOTAL_BATCH_SIZE = 2**17 # ~524K tokens per optimizer step
 EMBEDDING_LR = 0.32      # learning rate for token embeddings (Adam)
 UNEMBEDDING_LR = 0.007  # learning rate for lm_head (Adam)
-MATRIX_LR = 0.034        # learning rate for matrix parameters (Muon)
+MATRIX_LR = 0.035        # learning rate for matrix parameters (Muon)
 SCALAR_LR = 0.5         # learning rate for per-layer scalars (Adam)
 WEIGHT_DECAY = 0.06      # cautious weight decay for Muon
 ADAM_BETAS = (0.8, 0.95) # Adam beta1, beta2
