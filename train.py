@@ -120,7 +120,7 @@ class Block(nn.Module):
         is_wide_layer = (layer_idx == config.n_layer - 1 or 
                          layer_idx == config.n_layer // 2 or 
                          layer_idx == config.n_layer // 4)
-        expansion = 8 if is_wide_layer else 5
+        expansion = 10 if layer_idx == config.n_layer - 1 else (8 if is_wide_layer else 5)
         self.mlp = MLP(config, expansion)
 
     def forward(self, x, ve, cos_sin, window_size):
