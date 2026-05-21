@@ -148,6 +148,9 @@ class GPT(nn.Module):
         cos, sin = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim)
         self.register_buffer("cos", cos, persistent=False)
         self.register_buffer("sin", sin, persistent=False)
+        cos_local, sin_local = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim, base=50000)
+        self.register_buffer("cos_local", cos_local, persistent=False)
+        self.register_buffer("sin_local", sin_local, persistent=False)
 
     @torch.no_grad()
     def init_weights(self):
@@ -178,6 +181,8 @@ class GPT(nn.Module):
         head_dim = self.config.n_embd // self.config.n_head
         cos, sin = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim)
         self.cos, self.sin = cos, sin
+        cos_local, sin_local = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim, base=50000)
+        self.cos_local, self.sin_local = cos_local, sin_local
         # Cast embeddings to bf16
         self.transformer.wte.to(dtype=torch.bfloat16)
         for ve in self.value_embeds.values():
@@ -275,6 +280,7 @@ class GPT(nn.Module):
         B, T = idx.size()
         assert T <= self.cos.size(1)
         cos_sin = self.cos[:, :T], self.sin[:, :T]
+        cos_sin_local = self.cos_local[:, :T], self.sin_local[:, :T]
 
         x = self.transformer.wte(idx)
         x = norm(x)
@@ -282,7 +288,8 @@ class GPT(nn.Module):
         for i, block in enumerate(self.transformer.h):
             x = self.resid_lambdas[i] * x + self.x0_lambdas[i] * x0
             ve = self.value_embeds[str(i)](idx) if str(i) in self.value_embeds else None
-            x = block(x, ve, cos_sin, self.window_sizes[i])
+            layer_cos_sin = cos_sin_local if i % 2 == 0 and i < len(self.transformer.h) - 1 else cos_sin
+            x = block(x, ve, layer_cos_sin, self.window_sizes[i])
         x = norm(x)
 
         softcap = 15
