@@ -170,7 +170,7 @@ class GPT(nn.Module):
         self.x0_lambdas.fill_(0.05)
         # Value embeddings (smaller init for stability)
         for ve in self.value_embeds.values():
-            torch.nn.init.normal_(ve.weight, mean=0.0, std=0.01)
+            torch.nn.init.normal_(ve.weight, mean=0.0, std=0.02)
         # Gate weights init to zero (sigmoid(0)=0.5, scaled by 2 -> 1.0 = neutral)
         for block in self.transformer.h:
             if block.attn.ve_gate is not None:
