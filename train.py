@@ -100,10 +100,11 @@ class CausalSelfAttention(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, expansion=6):
         super().__init__()
-        self.c_fc = nn.Linear(config.n_embd, 6 * config.n_embd, bias=False)
-        self.c_proj = nn.Linear(6 * config.n_embd, config.n_embd, bias=False)
+        hidden = expansion * config.n_embd
+        self.c_fc = nn.Linear(config.n_embd, hidden, bias=False)
+        self.c_proj = nn.Linear(hidden, config.n_embd, bias=False)
 
     def forward(self, x):
         x = self.c_fc(x)
@@ -116,7 +117,11 @@ class Block(nn.Module):
     def __init__(self, config, layer_idx):
         super().__init__()
         self.attn = CausalSelfAttention(config, layer_idx)
-        self.mlp = MLP(config)
+        is_wide_layer = (layer_idx == config.n_layer - 1 or 
+                         layer_idx == config.n_layer // 2 or 
+                         layer_idx == config.n_layer // 4)
+        expansion = 8 if is_wide_layer else 5
+        self.mlp = MLP(config, expansion)
 
     def forward(self, x, ve, cos_sin, window_size):
         x = x + self.attn(norm(x), ve, cos_sin, window_size)
