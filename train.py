@@ -561,7 +561,7 @@ while True:
     for group in optimizer.param_groups:
         if group['kind'] == 'muon':
             # Muon: 90% warmdown (starts earlier)
-            muon_warmdown = 0.9
+            muon_warmdown = 0.95
             if progress < 1.0 - muon_warmdown:
                 muon_lrm = 1.0
             else:
