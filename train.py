@@ -559,10 +559,19 @@ while True:
     muon_momentum = get_muon_momentum(step)
     muon_weight_decay = get_weight_decay(progress)
     for group in optimizer.param_groups:
-        group["lr"] = group["initial_lr"] * lrm
         if group['kind'] == 'muon':
+            # Muon: 90% warmdown (starts earlier)
+            muon_warmdown = 0.9
+            if progress < 1.0 - muon_warmdown:
+                muon_lrm = 1.0
+            else:
+                cooldown = (1.0 - progress) / muon_warmdown
+                muon_lrm = cooldown * 1.0 + (1 - cooldown) * FINAL_LR_FRAC
+            group["lr"] = group["initial_lr"] * muon_lrm
             group["momentum"] = muon_momentum
             group["weight_decay"] = muon_weight_decay
+        else:
+            group["lr"] = group["initial_lr"] * lrm
     optimizer.step()
     model.zero_grad(set_to_none=True)
 
