@@ -200,7 +200,7 @@ class GPT(nn.Module):
         assert all(c in "SL" for c in pattern)
         long_window = config.sequence_len
         char_to_window_even = {"L": (long_window, 0), "S": (64, 0)}
-        char_to_window_odd = {"L": (long_window, 0), "S": (512, 0)}
+        char_to_window_odd = {"L": (long_window, 0), "S": (384, 0)}
         window_sizes = []
         for layer_idx in range(config.n_layer):
             char = pattern[layer_idx % len(pattern)]
