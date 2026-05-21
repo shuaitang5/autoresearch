@@ -148,7 +148,7 @@ class GPT(nn.Module):
         cos, sin = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim)
         self.register_buffer("cos", cos, persistent=False)
         self.register_buffer("sin", sin, persistent=False)
-        cos_local, sin_local = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim, base=50000)
+        cos_local, sin_local = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim, base=10000)
         self.register_buffer("cos_local", cos_local, persistent=False)
         self.register_buffer("sin_local", sin_local, persistent=False)
 
@@ -181,7 +181,7 @@ class GPT(nn.Module):
         head_dim = self.config.n_embd // self.config.n_head
         cos, sin = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim)
         self.cos, self.sin = cos, sin
-        cos_local, sin_local = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim, base=50000)
+        cos_local, sin_local = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim, base=10000)
         self.cos_local, self.sin_local = cos_local, sin_local
         # Cast embeddings to bf16
         self.transformer.wte.to(dtype=torch.bfloat16)
