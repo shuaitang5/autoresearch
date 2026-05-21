@@ -283,7 +283,7 @@ class GPT(nn.Module):
         # Small contribution from x0 (initial embedding) to final output
         x = x + 0.01 * x0
 
-        softcap = 15
+        softcap = 14
         logits = self.lm_head(x)
         logits = logits.float()
         logits = softcap * torch.tanh(logits / softcap)
