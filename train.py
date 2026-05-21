@@ -280,6 +280,8 @@ class GPT(nn.Module):
             ve = self.value_embeds[str(i)](idx) if str(i) in self.value_embeds else None
             x = block(x, ve, cos_sin, self.window_sizes[i])
         x = norm(x)
+        # Small contribution from x0 (initial embedding) to final output
+        x = x + 0.01 * x0
 
         softcap = 15
         logits = self.lm_head(x)
