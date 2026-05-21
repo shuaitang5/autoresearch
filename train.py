@@ -93,7 +93,7 @@ class CausalSelfAttention(nn.Module):
         q, k = apply_rotary_emb(q, cos, sin), apply_rotary_emb(k, cos, sin)
         q, k = norm(q), norm(k)
 
-        y = fa3.flash_attn_func(q, k, v, causal=True, window_size=window_size)
+        y = fa3.flash_attn_func(q, k, v, causal=True, window_size=window_size, softmax_scale=0.1)
         y = y.contiguous().view(B, T, -1)
         y = self.c_proj(y)
         return y
