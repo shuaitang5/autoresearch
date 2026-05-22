@@ -100,9 +100,9 @@ class CausalSelfAttention(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, mlp_ratio=5.5):
         super().__init__()
-        mlp_dim = int(5.5 * config.n_embd)
+        mlp_dim = int(mlp_ratio * config.n_embd)
         self.c_fc = nn.Linear(config.n_embd, mlp_dim, bias=False)
         self.c_proj = nn.Linear(mlp_dim, config.n_embd, bias=False)
 
@@ -117,7 +117,14 @@ class Block(nn.Module):
     def __init__(self, config, layer_idx):
         super().__init__()
         self.attn = CausalSelfAttention(config, layer_idx)
-        self.mlp = MLP(config)
+        # Progressive MLP: smaller early, larger late
+        if layer_idx < 3:
+            mlp_ratio = 4.5
+        elif layer_idx == config.n_layer - 1:
+            mlp_ratio = 7.0
+        else:
+            mlp_ratio = 5.5
+        self.mlp = MLP(config, mlp_ratio)
 
     def forward(self, x, ve, cos_sin, window_size):
         x = x + self.attn(norm(x), ve, cos_sin, window_size)
