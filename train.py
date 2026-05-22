@@ -117,7 +117,7 @@ class Block(nn.Module):
         super().__init__()
         self.attn = CausalSelfAttention(config, layer_idx)
         # Last 2 layers get wider MLP
-        expansion = 9 if layer_idx == config.n_layer - 1 else (8 if layer_idx == config.n_layer - 2 else 7)
+        expansion = 10 if layer_idx == config.n_layer - 1 else (8 if layer_idx == config.n_layer - 2 else 7)
         self.mlp = MLP(config, expansion)
 
     def forward(self, x, ve, cos_sin, window_size):
