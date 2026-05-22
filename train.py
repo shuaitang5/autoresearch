@@ -201,7 +201,7 @@ class GPT(nn.Module):
         window_sizes = []
         for layer_idx in range(config.n_layer):
             if layer_idx < 3:
-                window_sizes.append((128, 0))  # very local for early layers
+                window_sizes.append((96, 0))  # very local for early layers
             else:
                 window_sizes.append((256, 0))  # wider for later layers
         window_sizes[-1] = (1024, 0)  # 1024 context for last layer (saves compute)
