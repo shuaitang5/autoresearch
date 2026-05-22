@@ -444,7 +444,7 @@ EMBEDDING_LR = 0.5      # learning rate for token embeddings (Adam)
 UNEMBEDDING_LR = 0.015  # learning rate for lm_head (Adam)
 MATRIX_LR = 0.020        # learning rate for matrix parameters (Muon)
 SCALAR_LR = 0.2         # learning rate for per-layer scalars (Adam)
-WEIGHT_DECAY = 0.0      # cautious weight decay for Muon
+WEIGHT_DECAY = 0.01      # cautious weight decay for Muon
 ADAM_BETAS = (0.7, 0.95) # Adam beta1, beta2
 WARMUP_RATIO = 0.0      # fraction of time budget for LR warmup
 WARMDOWN_RATIO = 1.0    # fraction of time budget for LR warmdown
@@ -558,8 +558,8 @@ while True:
     # Progress and schedules
     progress = min(total_training_time / TIME_BUDGET, 1.0)
     lrm = get_lr_multiplier(progress)
-    if step <= 6000:
-        lrm = 0.5 + 0.5 * step / 6000
+    if step <= 8000:
+        lrm = min(1.0, 0.5 + 0.5 * step / 1000)
     muon_momentum = get_muon_momentum(step)
     muon_weight_decay = get_weight_decay(progress)
     for group in optimizer.param_groups:
@@ -581,7 +581,7 @@ while True:
     t1 = time.time()
     dt = t1 - t0
 
-    if step > 6000:
+    if step > 8000:
         total_training_time += dt
 
     # Logging
@@ -606,7 +606,7 @@ while True:
     step += 1
 
     # Time's up — but only stop after warmup steps so we don't count compilation
-    if step > 6000 and total_training_time >= TIME_BUDGET:
+    if step > 8000 and total_training_time >= TIME_BUDGET:
         break
 
 print()  # newline after \r training log
