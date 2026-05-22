@@ -169,7 +169,7 @@ class GPT(nn.Module):
         self.x0_lambdas.fill_(0.5)
         # Value embeddings
         for ve in self.value_embeds.values():
-            torch.nn.init.uniform_(ve.weight, -s, s)
+            torch.nn.init.uniform_(ve.weight, -s*0.7, s*0.7)
         # Gate weights init to zero (sigmoid(0)=0.5, scaled by 2 -> 1.0 = neutral)
         for block in self.transformer.h:
             if block.attn.ve_gate is not None:
