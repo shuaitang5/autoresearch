@@ -29,6 +29,20 @@ Each experiment runs on a single GPU. The training script runs for a **fixed tim
 - Modify `prepare.py`. It is read-only. It contains the fixed evaluation, data loading, tokenizer, and training constants (time budget, sequence length, etc).
 - Install new packages or add dependencies. You can only use what's already in `pyproject.toml`.
 - Modify the evaluation harness. The `evaluate_bpb` function in `prepare.py` is the ground truth metric.
+- **Modify the time-budget enforcement in `train.py`.** Specifically: do NOT change the
+  `if step > 10` warmup-exclusion threshold, do NOT add "free steps" or "warmup steps"
+  that get excluded from `total_training_time`, and do NOT change the `if step > 10 and total_training_time >= TIME_BUDGET: break` exit condition. The 5-minute wall-clock
+  budget is the fixed-cost ceiling that makes experiments comparable. **The original
+  `step > 10` constant is the only allowed value** — it exists to skip a few warm-up
+  iterations where torch.compile is still tracing, not to grant the model extra
+  training. Any change that gives the model more than ~10 steps "for free" before the
+  timer starts is invalid and the resulting val_bpb numbers are not comparable to
+  other experiments.
+
+  Why this matters: the swarm's whole premise is that all experiments share the same
+  compute budget. An agent that quietly extends its budget will dominate the leaderboard
+  with worthless numbers. If you're tempted to "add a long warmup that doesn't count",
+  resist — the val_bpb improvement is fake. Use the budget you have.
 
 **The goal is simple: get the lowest val_bpb.** Since the time budget is fixed, you don't need to worry about training time — it's always 5 minutes. Everything is fair game: change the architecture, the optimizer, the hyperparameters, the batch size, the model size. The only constraint is that the code runs without crashing and finishes within the time budget.
 
