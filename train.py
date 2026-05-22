@@ -123,7 +123,7 @@ class Block(nn.Module):
         elif layer_idx == config.n_layer - 1:
             mlp_ratio = 7.0
         else:
-            mlp_ratio = 5.5
+            mlp_ratio = 6.0
         self.mlp = MLP(config, mlp_ratio)
 
     def forward(self, x, ve, cos_sin, window_size):
