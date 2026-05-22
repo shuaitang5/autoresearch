@@ -118,7 +118,7 @@ class Block(nn.Module):
         super().__init__()
         self.attn = CausalSelfAttention(config, layer_idx)
         # Progressive MLP: smaller early, larger late
-        if layer_idx < 3:
+        if layer_idx < 2:
             mlp_ratio = 4.5
         elif layer_idx == config.n_layer - 1:
             mlp_ratio = 7.0
@@ -207,7 +207,7 @@ class GPT(nn.Module):
         long_window = config.sequence_len
         window_sizes = []
         for layer_idx in range(config.n_layer):
-            if layer_idx < 3:
+            if layer_idx < 2:
                 window_sizes.append((96, 0))  # very local for early layers
             else:
                 window_sizes.append((256, 0))  # wider for later layers
