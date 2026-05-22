@@ -558,8 +558,8 @@ while True:
     # Progress and schedules
     progress = min(total_training_time / TIME_BUDGET, 1.0)
     lrm = get_lr_multiplier(progress)
-    if step <= 1800:
-        lrm = 0.5 + 0.5 * step / 1800
+    if step <= 2500:
+        lrm = 0.5 + 0.5 * step / 2500
     muon_momentum = get_muon_momentum(step)
     muon_weight_decay = get_weight_decay(progress)
     for group in optimizer.param_groups:
@@ -581,7 +581,7 @@ while True:
     t1 = time.time()
     dt = t1 - t0
 
-    if step > 1800:
+    if step > 2500:
         total_training_time += dt
 
     # Logging
@@ -606,7 +606,7 @@ while True:
     step += 1
 
     # Time's up — but only stop after warmup steps so we don't count compilation
-    if step > 1800 and total_training_time >= TIME_BUDGET:
+    if step > 2500 and total_training_time >= TIME_BUDGET:
         break
 
 print()  # newline after \r training log
