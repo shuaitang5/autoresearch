@@ -530,7 +530,7 @@ def get_lr_multiplier(progress):
         return cosine_decay * (1.0 - FINAL_LR_FRAC) + FINAL_LR_FRAC
 
 def get_muon_momentum(step):
-    frac = min(step / 200, 1)
+    frac = min(step / 100, 1)
     return (1 - frac) * 0.80 + frac * 0.92
 
 def get_weight_decay(progress):
