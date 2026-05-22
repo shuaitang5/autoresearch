@@ -119,7 +119,7 @@ class Block(nn.Module):
         self.attn = CausalSelfAttention(config, layer_idx)
         # Last layer (L window) gets 5x MLP, others get 4x
         is_last = (layer_idx == config.n_layer - 1)
-        self.mlp = MLP(config, expansion=5 if is_last else 4)
+        self.mlp = MLP(config, expansion=6 if is_last else 4)
 
     def forward(self, x, ve, cos_sin, window_size):
         x = x + norm(self.attn(norm(x), ve, cos_sin, window_size))
