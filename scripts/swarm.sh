@@ -113,8 +113,10 @@ cmd_up() {
         cd $wt
         git config user.email tangshua-swarm@amazon.com
         git config user.name 'autoresearch-gpu$i'
-        # initialize results.tsv per program.md
-        printf 'commit\tval_bpb\tmemory_gb\tstatus\tdescription\n' > results.tsv
+        # initialize results.tsv ONLY if missing (preserve history across restarts)
+        if [ ! -f results.tsv ]; then
+          printf 'commit\tval_bpb\tmemory_gb\tstatus\tdescription\n' > results.tsv
+        fi
       " 2>&1 | sed "s/^/  gpu$i: /"
     done
   fi
@@ -168,6 +170,9 @@ IMPORTANT TOPOLOGY:
 
 Read program.md and follow it. Important deltas from program.md:
 - Branch \`$br\` ALREADY EXISTS, you are already on it. Skip Setup step 2.
+- **If \`results.tsv\` already exists in this worktree, DO NOT overwrite it.** It contains
+  the experiment history from prior sessions. Skip Setup step 5 in that case.
+  Only create results.tsv if it is missing.
 - Run tag is \`$TAG-gpu$i\`. Use it in commit messages.
 - DO NOT pause to ask for confirmation. There is no human at the keyboard.
   Skip "Confirm and go". Set up, then immediately enter the experiment loop.

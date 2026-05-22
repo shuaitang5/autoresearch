@@ -77,30 +77,64 @@ The single source of truth for "what has the agent learned" is the **git history
 
 ### Resume after c7 reboot (or tmux loss)
 
-c7 reboots kill the tmux server, which kills all 8 agents. The work itself is safe (it's on FSx). Restart procedure:
+c7 reboots kill the tmux server (in-memory), which kills all 8 agents. The work itself is safe — everything important lives on FSx (worktrees, branches, results.tsv) or local disk that survives reboot (scripts, .venv, ~/.config/autoresearch/secrets.env, ~/.midway/cookie, ~/.kube/config, crontab).
+
+#### What actually breaks across a c7 reboot
+
+| What | Survives c7 reboot? | Why |
+|---|---|---|
+| Pod + FSx state (worktrees, branches, results.tsv, all kept commits) | ✅ | Different machine. `/scratch/tangshua/` is on remote FSx. |
+| `~/.toolbox/bin/{claude,kraken,mwinit}` | ✅ | Local disk |
+| `~/.local/bin/{uv,gh}` | ✅ | Local disk |
+| `~/autoresearch/` (scripts, .venv, etc.) | ✅ | Local disk |
+| `~/.midway/cookie` (midway auth) | ✅ for ~20h | File-based; expires by time, not reboot |
+| `~/.config/autoresearch/secrets.env` | ✅ | Local disk |
+| Crontab (auth check + sync) | ✅ | Crontab is file-based, fires automatically once kubectl auth is fresh |
+| `~/.kube/config` (kubectl context) | ✅ | But the kraken-issued AWS creds inside it expire |
+| AWS profile creds (used by `claude` and `kubectl`) | ❌ | Cached briefly via `ada`; expire after a few hours |
+| **8 tmux sessions running `claude -p`** | ❌ | Tmux server is in-memory; reboot kills it |
+
+#### The full resume procedure (manual, 2-3 minutes)
 
 ```bash
-# from user's laptop
+# 1. ssh in (laptop)
 ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com
 
-# on c7
+# 2. set PATH (your interactive shells should have this via .bashrc, but be explicit)
 export PATH=~/.toolbox/bin:~/.local/bin:$PATH
 
-# 1. refresh kraken kubectl auth (always needed after a long break)
-mwinit                                                       # if midway cookie >12h old
+# 3. refresh creds (this also fixes both kubectl AND claude — they share the AWS profile)
+mwinit                                                                 # only if midway cookie >12h old
 kraken jobs update-kubeconfig -p obsidian -j tangshua-sleeper-bom
 
-# 2. verify pod is reachable
-kubectl get pod tangshua-sleeper-bom-worker-0                # STATUS=Running
+# 4. relaunch the 8-agent swarm
+SKIP_WORKTREES=1 bash ~/autoresearch/scripts/swarm.sh up
 
-# 3. relaunch the swarm (worktrees + branches already exist on FSx)
-cd ~/autoresearch
-SKIP_WORKTREES=1 bash scripts/swarm.sh up                    # IMPORTANT: SKIP_WORKTREES=1
+# 5. verify (~2 min later, give agents time to start their first train.py)
+bash ~/autoresearch/scripts/swarm.sh status                            # should show 8 RUNNING
+ssh c7 'export PATH=$HOME/.toolbox/bin:$PATH && kubectl exec tangshua-sleeper-bom-worker-0 -- nvidia-smi --query-gpu=index,utilization.gpu --format=csv,noheader'
 ```
 
-`SKIP_WORKTREES=1` is critical. Without it, `swarm.sh` would try to `git worktree add` on already-existing worktrees and error out. With it, it just relaunches the 8 tmux sessions on top of the existing FSx state.
+#### Critical: `SKIP_WORKTREES=1`
 
-When the agent's `claude -p` starts up via the runner, it gets a "resume" prompt (not the kickoff one) on the second iteration onward. It reads `results.tsv` and `git log` to figure out where it left off, then continues the experiment loop. **The agents do not lose progress.**
+Without it, `swarm.sh up` tries `git worktree add` on already-existing worktrees and errors out. With it, swarm.sh:
+- Skips the `git worktree add` step
+- Skips creating `results.tsv` (preserves the experiment history that's already there)
+- Just spins up the 8 tmux sessions on top of existing FSx state
+
+#### The agent's behavior on resume
+
+When `claude -p` is relaunched by the runner, the runner script's iteration counter starts at 0, so the agent gets the **kickoff prompt** again. The kickoff prompt has been hardened to tell the agent:
+- Branch already exists (skip `git checkout -b`)
+- `results.tsv` already exists (skip "initialize results.tsv" — DO NOT OVERWRITE IT)
+
+The agent then reads program.md, looks at the current git state (its own kept-commit history) and `results.tsv`, and continues the experiment loop. **No regression in val_bpb is expected.**
+
+#### If something doesn't come back
+
+- **All GPUs idle 5 min after `swarm.sh up`**: claude is failing auth. Check `tail ~/.autoresearch-swarm-logs/gpu0.log` — if you see `awsCredentialExport did not return a valid value`, redo step 3.
+- **`swarm.sh status` shows DOWN sessions**: tmux sessions didn't spawn. Check that `/apollo/env/envImprovement/bin/tmux` exists (system tmux at `/usr/bin/tmux` is too old).
+- **Stuck on stale env from before reboot**: do `swarm.sh stop` then `swarm.sh up` from a fresh shell so the tmux sessions inherit current env.
 
 ### If the auth cron alert fires
 
