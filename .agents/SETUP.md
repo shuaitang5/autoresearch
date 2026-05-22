@@ -159,6 +159,50 @@ ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com '
 '
 ```
 
+### How to plot per-agent val_bpb progress
+
+The repo ships two scripts:
+
+- [`scripts/fetch_swarm_data.sh`](../scripts/fetch_swarm_data.sh) — kubectl-execs into the pod, dumps each agent's `results.tsv` + `git log master..HEAD` into local dirs.
+- [`scripts/plot_swarm.py`](../scripts/plot_swarm.py) — renders an 8-panel stacked figure (one per agent) from those dumps. Shared y-axis pinned to the May 19 consensus baseline (~0.979) so trajectories are directly comparable. Mirrors the look of karpathy's [analysis.ipynb](../analysis.ipynb).
+
+Generate a plot from c7:
+
+```bash
+ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com
+cd ~/autoresearch
+
+# 1. fetch latest results.tsv + git log per agent (~5s)
+bash scripts/fetch_swarm_data.sh
+
+# 2. render
+.venv/bin/python scripts/plot_swarm.py
+# saved: /tmp/swarm_results/swarm_progress.png  (~18x52in, ~1.6MB)
+
+# 3. copy to a place you can view (e.g. into the repo so it goes through the sync flow)
+cp /tmp/swarm_results/swarm_progress.png ~/autoresearch/swarm_progress_$(date +%Y%m%d_%H%M).png
+```
+
+If `.venv/bin/python` doesn't have pandas/matplotlib (e.g., fresh c7 bootstrap):
+```bash
+~/autoresearch/.venv/bin/python -m pip install --quiet pandas matplotlib
+```
+
+Customizing:
+- `OUT=/some/path.png .venv/bin/python scripts/plot_swarm.py` writes to a custom file
+- `RESULTS_DIR=... GITLOG_DIR=...` override the input paths
+
+What the plot shows:
+- **gray dots** = discarded experiments
+- **green dots** = kept experiments
+- **green step line** = running best val_bpb
+- **rotated annotations** on each kept-improvement (full-text descriptions, no truncation)
+- **panel title shows** the best val_bpb, % improvement vs baseline, results.tsv sizes (K/D/C), and total kept commits in git log
+- **red title** flags any agent that has hacked the time-budget enforcement (e.g., adding "free warmup steps" outside the wall-clock cap) — its val_bpb is not comparable to other agents'
+- **yellow ⓘ banner** appears on panels where results.tsv is shorter than git log (e.g., post-restart truncation), with an explanation
+
+The git log is the canonical source of truth for "what was kept" — results.tsv is per-experiment telemetry that the agents have, in the past, accidentally wiped. The plot uses both: scatter from results.tsv, total-kept-count from git log.
+
 ### Files a fresh session should know about
 
 - [`.agents/SETUP.md`](.agents/SETUP.md) — this file, the canonical runbook.
@@ -166,6 +210,8 @@ ssh dev-dsk-tangshua-2b-183a66f8.us-west-2.amazon.com '
 - [`scripts/c7_bootstrap.sh`](scripts/c7_bootstrap.sh) — full pod-side setup, idempotent. Run from c7 if anything got wiped.
 - [`scripts/c7_sync_github.sh`](scripts/c7_sync_github.sh) — pod master → c7 → GitHub fork. Cron-managed (every 15min).
 - [`scripts/c7_auth_check.sh`](scripts/c7_auth_check.sh) — Slack alerter for kubectl auth expiry. Cron-managed (every 30min).
+- [`scripts/fetch_swarm_data.sh`](scripts/fetch_swarm_data.sh) — fetches each agent's results.tsv + git log from the pod into local dirs. Used by the plot pipeline.
+- [`scripts/plot_swarm.py`](scripts/plot_swarm.py) — renders the 8-panel val_bpb progress plot (see "How to plot" section above).
 - [`program.md`](program.md) — the autoresearch operating instructions the agents follow.
 - [`train.py`](train.py) — the file the agents iterate on. Master starts at commit `08bb702` (FA2 baseline). c7-side scripts added on `ae869bc`.
 
