@@ -211,7 +211,7 @@ class GPT(nn.Module):
                 window_sizes.append((96, 0))  # very local for early layers
             else:
                 window_sizes.append((256, 0))  # wider for later layers
-        window_sizes[-1] = (896, 0)  # 1024 context for last layer (saves compute)
+        window_sizes[-1] = (960, 0)  # 1024 context for last layer (saves compute)
         return window_sizes
 
     def estimate_flops(self):
