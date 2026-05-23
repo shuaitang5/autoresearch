@@ -119,7 +119,7 @@ class Block(nn.Module):
         self.attn = CausalSelfAttention(config, layer_idx)
         # Progressive MLP: smaller early, larger late
         if layer_idx < 2:
-            mlp_ratio = 4.5
+            mlp_ratio = 5.0
         elif layer_idx == config.n_layer - 1:
             mlp_ratio = 7.0
         else:
