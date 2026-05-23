@@ -532,7 +532,7 @@ def get_lr_multiplier(progress):
 
 def get_muon_momentum(step, progress=0.0):
     frac = min(step / 300, 1)
-    base = (1 - frac) * 0.85 + frac * 0.96
+    base = (1 - frac) * 0.80 + frac * 0.96
     # During late warmdown, slightly reduce momentum
     if progress > 0.5:
         decay = (progress - 0.5) / 0.5
