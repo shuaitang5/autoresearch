@@ -563,11 +563,14 @@ while True:
     lrm = get_lr_multiplier(progress)
     muon_momentum = get_muon_momentum(step)
     muon_weight_decay = get_weight_decay(progress)
+    ve_wd = 0.01 * (1 - progress) + 0.002 * progress
     for group in optimizer.param_groups:
         group["lr"] = group["initial_lr"] * lrm
         if group['kind'] == 'muon':
             group["momentum"] = muon_momentum
             group["weight_decay"] = muon_weight_decay
+        elif group.get('weight_decay', 0) > 0 and group['kind'] == 'adamw':
+            group['weight_decay'] = ve_wd
     optimizer.step()
     model.zero_grad(set_to_none=True)
 
