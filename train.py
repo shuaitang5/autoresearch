@@ -160,8 +160,8 @@ class GPT(nn.Module):
         n_embd = self.config.n_embd
         s = 3**0.5 * n_embd**-0.5
         for block in self.transformer.h:
-            torch.nn.init.uniform_(block.attn.c_q.weight, -s*0.45, s*0.45)
-            torch.nn.init.uniform_(block.attn.c_k.weight, -s*0.45, s*0.45)
+            torch.nn.init.uniform_(block.attn.c_q.weight, -s*0.5, s*0.5)
+            torch.nn.init.uniform_(block.attn.c_k.weight, -s*0.5, s*0.5)
             torch.nn.init.uniform_(block.attn.c_v.weight, -s*0.5, s*0.5)
             torch.nn.init.zeros_(block.attn.c_proj.weight)
             torch.nn.init.uniform_(block.mlp.c_fc.weight, -s*0.4, s*0.4)
