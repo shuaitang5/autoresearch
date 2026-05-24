@@ -528,7 +528,7 @@ def get_lr_multiplier(progress):
         return 1.0
     else:
         t = (progress - (1.0 - WARMDOWN_RATIO)) / WARMDOWN_RATIO
-        cosine_decay = (1.0 - t)**1.1
+        cosine_decay = (1.0 - t)**1.05
         return cosine_decay * (1.0 - FINAL_LR_FRAC) + FINAL_LR_FRAC
 
 def get_muon_momentum(step):
