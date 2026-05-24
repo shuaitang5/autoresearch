@@ -605,7 +605,7 @@ while True:
         gc.collect()
         gc.freeze()
         gc.disable()
-    elif (step + 1) % 5000 == 0:
+    elif (step + 1) % 1000 == 0:
         gc.collect()
 
     step += 1
