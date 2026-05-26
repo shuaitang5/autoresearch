@@ -291,8 +291,11 @@ class GPT(nn.Module):
         logits = softcap * torch.tanh(logits / softcap)
 
         if targets is not None:
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1),
-                                   ignore_index=-1, reduction=reduction)
+            loss_per_token = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1),
+                                   ignore_index=-1, reduction="none")
+            # Weight later tokens more (they have more context)
+            weights = torch.linspace(0.5, 1.5, T, device=logits.device).repeat(B)
+            loss = (loss_per_token * weights).mean()
             return loss
         return logits
 
