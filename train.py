@@ -541,7 +541,7 @@ def get_muon_momentum(step, progress=0.0):
     base = (1 - frac) * 0.85 + frac * 0.93
     if progress > 0.5:
         decay = (progress - 0.5) / 0.5
-        base = base * (1 - 0.04 * decay)
+        base = base * (1 - 0.05 * decay)
     return base
 
 def get_weight_decay(progress):
