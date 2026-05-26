@@ -210,7 +210,7 @@ class GPT(nn.Module):
         for layer_idx in range(config.n_layer):
             char = pattern[layer_idx % len(pattern)]
             window_sizes.append(char_to_window[char])
-        window_sizes[-1] = (-1, -1)
+        window_sizes[-1] = (1536, 0)
         window_sizes[config.n_layer // 2] = (768, 0)
         window_sizes[config.n_layer // 4] = (256, 0)
         window_sizes[0] = (64, 0)
