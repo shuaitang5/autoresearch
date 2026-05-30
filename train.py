@@ -559,7 +559,7 @@ while True:
     progress = min(total_training_time / TIME_BUDGET, 1.0)
     lrm = get_lr_multiplier(progress)
     if step <= 25000:
-        lrm = min(1.0, 0.5 + 0.5 * step / 1000)
+        lrm = min(1.0, 0.5 + 0.5 * step / 500)
     muon_momentum = get_muon_momentum(step)
     muon_weight_decay = get_weight_decay(progress)
     for group in optimizer.param_groups:
