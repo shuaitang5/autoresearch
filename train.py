@@ -569,7 +569,7 @@ while True:
     # Decay momentum during warmdown
     if progress > 1.0 - WARMDOWN_RATIO:
         cooldown_frac = (1.0 - progress) / WARMDOWN_RATIO  # 1.0 at start of warmdown, 0.0 at end
-        muon_momentum = muon_momentum * (0.95 + 0.05 * cooldown_frac)  # decay from 0.95 to 0.9025
+        muon_momentum = muon_momentum * (0.92 + 0.08 * cooldown_frac)  # decay from 0.95 to 0.9025
     muon_weight_decay = get_weight_decay(progress)
     for group in optimizer.param_groups:
         group["lr"] = group["initial_lr"] * lrm
