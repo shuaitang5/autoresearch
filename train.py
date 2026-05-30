@@ -447,7 +447,7 @@ HEAD_DIM = 128          # target head dimension for attention
 WINDOW_PATTERN = "SSSSL" # sliding window pattern: L=full, S=half context
 
 # Optimization
-TOTAL_BATCH_SIZE = 96 * 2048 # ~524K tokens per optimizer step
+TOTAL_BATCH_SIZE = 192 * 2048 # ~524K tokens per optimizer step
 EMBEDDING_LR = 0.5      # learning rate for token embeddings (Adam)
 UNEMBEDDING_LR = 0.006  # learning rate for lm_head (Adam)
 MATRIX_LR = 0.05        # learning rate for matrix parameters (Muon)
@@ -560,6 +560,7 @@ while True:
     torch.cuda.synchronize()
     t0 = time.time()
     for micro_step in range(grad_accum_steps):
+        torch.compiler.cudagraph_mark_step_begin()
         with autocast_ctx:
             loss = model(x, y)
         train_loss = loss.detach()
