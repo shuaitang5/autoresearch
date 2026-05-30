@@ -540,7 +540,7 @@ def get_muon_momentum(step, progress=0.0):
     # During late warmdown, slightly reduce momentum
     if progress > 0.5:
         decay = (progress - 0.5) / 0.5
-        return base - 0.03 * decay
+        return base - 0.035 * decay
     return base
 
 def get_weight_decay(progress):
