@@ -179,6 +179,10 @@ Read program.md and follow it. Important deltas from program.md:
 - The MFU printout in train.py assumes H100; you are on B200. Ignore the absolute MFU.
 - ~/.cache/autoresearch/ is shared and populated; do NOT re-run prepare.py.
 - results.tsv is per-worktree (untracked). Append your results.
+- **Commit-message format is MANDATORY:** every kept experiment must end with
+  \`  [val_bpb=X.XXXXXX]\` (6 decimal places). E.g. \`MLP 4x->5x  [val_bpb=0.956557]\`.
+  This embeds the metric in git history so it survives any results.tsv corruption.
+  See program.md "Commit message format" for details.
 - Loop forever per program.md. Never stop on your own.
 
 Begin now.

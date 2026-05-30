@@ -109,13 +109,25 @@ LOOP FOREVER:
 
 1. Look at the git state: the current branch/commit we're on
 2. Tune `train.py` with an experimental idea by directly hacking the code.
-3. git commit
-4. Run the experiment: `uv run train.py > run.log 2>&1` (redirect everything — do NOT use tee or let output flood your context)
-5. Read out the results: `grep "^val_bpb:\|^peak_vram_mb:" run.log`
-6. If the grep output is empty, the run crashed. Run `tail -n 50 run.log` to read the Python stack trace and attempt a fix. If you can't get things to work after more than a few attempts, give up.
-7. Record the results in the tsv (NOTE: do not commit the results.tsv file, leave it untracked by git)
-8. If val_bpb improved (lower), you "advance" the branch, keeping the git commit
-9. If val_bpb is equal or worse, you git reset back to where you started
+3. Run the experiment: `uv run train.py > run.log 2>&1` (redirect everything — do NOT use tee or let output flood your context)
+4. Read out the results: `grep "^val_bpb:\|^peak_vram_mb:" run.log`
+5. If the grep output is empty, the run crashed. Run `tail -n 50 run.log` to read the Python stack trace and attempt a fix. If you can't get things to work after more than a few attempts, give up.
+6. Record the results in the tsv (NOTE: do not commit the results.tsv file, leave it untracked by git)
+7. If val_bpb improved (lower), you "advance" the branch by **`git commit`-ing the change with the val_bpb embedded in the commit message** (see format below). If equal or worse, `git reset --hard` back to where you started.
+
+**Commit message format (REQUIRED for all kept experiments):**
+
+```
+<one-line description of the change>  [val_bpb=0.943261]
+```
+
+The trailing `[val_bpb=X.XXXXXX]` (six decimal places, no spaces inside the brackets) is REQUIRED. This makes the kept-experiment val_bpb part of the canonical git history, so it survives even if `results.tsv` gets corrupted, truncated, or wiped. Tools that produce leaderboards parse this token from `git log`. Examples:
+
+- `aspect_ratio 64->96 (dim 512->768)  [val_bpb=0.959678]`
+- `MLP expansion 4x->5x  [val_bpb=0.956557]`
+- `unembedding_lr 0.008->0.010  [val_bpb=0.943085]`
+
+Do NOT commit experiments that did not improve val_bpb. Discards are git-reset, not committed.
 
 The idea is that you are a completely autonomous researcher trying things out. If they work, keep. If they don't, discard. And you're advancing the branch so that you can iterate. If you feel like you're getting stuck in some way, you can rewind but you should probably do this very very sparingly (if ever).
 
